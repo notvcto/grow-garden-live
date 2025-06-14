@@ -25,18 +25,39 @@ const WatchlistManager = () => {
 
   const [suggestions, setSuggestions] = useState([]);
 
+    const safeParseDate = (dateValue) => {
+    if (!dateValue) return null;
+    if (dateValue instanceof Date) return dateValue;
+    const parsed = new Date(dateValue);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+
+  // Helper function to safely format dates
+  const formatDate = (dateValue) => {
+    const date = safeParseDate(dateValue);
+    return date ? date.toLocaleDateString() : 'Invalid Date';
+  };
+
   useEffect(() => {
     // Load saved watchlist from localStorage
     const savedWatchlist = localStorage.getItem('watchlist');
     if (savedWatchlist) {
-      const parsed = JSON.parse(savedWatchlist);
-      // Convert date strings back to Date objects
-      const withDates = parsed.map(item => ({
-        ...item,
-        createdAt: new Date(item.createdAt),
-        lastTriggered: item.lastTriggered ? new Date(item.lastTriggered) : null
-      }));
-      setWatchlist(withDates);
+      try {
+        const parsed = JSON.parse(savedWatchlist);
+        // Convert date strings back to Date objects with safe parsing
+        const withDates = parsed.map(item => ({
+          ...item,
+          createdAt: safeParseDate(item.createdAt),
+          lastTriggered: item.lastTriggered ? safeParseDate(item.lastTriggered) : null,
+          triggerCount: item.triggerCount || 0
+        }));
+        setWatchlist(withDates);
+      } catch (error) {
+        console.error('Error parsing watchlist from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem('watchlist');
+        setWatchlist([]);
+      }
     }
   }, []);
 

@@ -31,11 +31,38 @@ const WebhookManager = () => {
     { id: 'egg', label: 'Eggs', icon: '🪺' },
   ];
 
+  const safeParseDate = (dateValue) => {
+    if (!dateValue) return null;
+    if (dateValue instanceof Date) return dateValue;
+    const parsed = new Date(dateValue);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+
+  // Helper function to safely format dates
+  const formatDate = (dateValue) => {
+    const date = safeParseDate(dateValue);
+    return date ? date.toLocaleDateString() : 'Invalid Date';
+  };
+
   useEffect(() => {
     // Load saved webhooks from localStorage
     const savedWebhooks = localStorage.getItem('webhooks');
     if (savedWebhooks) {
-      setWebhooks(JSON.parse(savedWebhooks));
+      try {
+        const parsed = JSON.parse(savedWebhooks);
+        // Convert date strings back to Date objects with safe parsing
+        const withDates = parsed.map(webhook => ({
+          ...webhook,
+          createdAt: safeParseDate(webhook.createdAt),
+          deliveryCount: webhook.deliveryCount || 0
+        }));
+        setWebhooks(withDates);
+      } catch (error) {
+        console.error('Error parsing webhooks from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem('webhooks');
+        setWebhooks([]);
+      }
     }
   }, []);
 
