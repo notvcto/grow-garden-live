@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,9 +27,10 @@ const WebhookManager = () => {
   const itemTypes = [
     { id: 'seed', label: 'Seeds', icon: '🌱' },
     { id: 'gear', label: 'Gear', icon: '🔧' },
-    { id: 'egg', label: 'Eggs', icon: '🪺' },
+    { id: 'consumable', label: 'Consumables', icon: '🧪' }
   ];
 
+  // Helper function to safely convert date strings to Date objects
   const safeParseDate = (dateValue) => {
     if (!dateValue) return null;
     if (dateValue instanceof Date) return dateValue;
@@ -342,8 +342,8 @@ const WebhookManager = () => {
                     )}
 
                     <div className="text-xs text-gray-500 mt-2">
-                      Created: {webhook.createdAt.toLocaleDateString()} | 
-                      Deliveries: {webhook.deliveryCount}
+                      Created: {formatDate(webhook.createdAt)} | 
+                      Deliveries: {webhook.deliveryCount || 0}
                     </div>
                   </div>
 

@@ -1,30 +1,36 @@
-
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useWebSocketData } from '@/contexts/WebSocketContext';
-import StockSection from './StockSection';
-import WeatherSection from './WeatherSection';
+import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useWebSocketData } from "@/contexts/WebSocketContext";
+import StockSection from "./StockSection";
+import WeatherSection from "./WeatherSection";
 
 const Dashboard = () => {
-  const { data, isConnected, error, connectionAttempts, forceReconnect, lastRefreshed } = useWebSocketData();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const {
+    data,
+    isConnected,
+    error,
+    connectionAttempts,
+    forceReconnect,
+    lastRefreshed,
+  } = useWebSocketData();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
-  // Log when data changes to debug
+  // Log when data changes to debug - force re-render on every data change
   useEffect(() => {
     if (data) {
-      console.log('Dashboard data updated:', data.updateId);
-      console.log('Full data object:', data);
+      console.log("Dashboard data updated with ID:", data.updateId);
+      console.log("Data refresh triggered for all components");
     }
-  }, [data]);
+  }, [data?.updateId]); // Key dependency on updateId to force refresh
 
   // Filter function for search
   const filterItems = (items: any[]) => {
     if (!items || !Array.isArray(items)) return [];
     if (!searchTerm) return items;
-    return items.filter(item =>
+    return items.filter((item) =>
       item.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
@@ -33,88 +39,98 @@ const Dashboard = () => {
   const getAvailableItems = () => {
     if (!data) return [];
     const allItems = [
-      ...(Array.isArray(data.seed_stock) ? data.seed_stock.filter(item => item && item.quantity > 0) : []),
-      ...(Array.isArray(data.gear_stock) ? data.gear_stock.filter(item => item && item.quantity > 0) : []),
-      ...(Array.isArray(data.egg_stock) ? data.egg_stock.filter(item => item && item.quantity > 0) : []),
-      ...(Array.isArray(data.cosmetic_stock) ? data.cosmetic_stock.filter(item => item && item.quantity > 0) : []),
-      ...(Array.isArray(data.eventshop_stock) ? data.eventshop_stock.filter(item => item && item.quantity > 0) : [])
+      ...(Array.isArray(data.seed_stock)
+        ? data.seed_stock.filter((item) => item && item.quantity > 0)
+        : []),
+      ...(Array.isArray(data.gear_stock)
+        ? data.gear_stock.filter((item) => item && item.quantity > 0)
+        : []),
+      ...(Array.isArray(data.egg_stock)
+        ? data.egg_stock.filter((item) => item && item.quantity > 0)
+        : []),
+      ...(Array.isArray(data.cosmetic_stock)
+        ? data.cosmetic_stock.filter((item) => item && item.quantity > 0)
+        : []),
+      ...(Array.isArray(data.eventshop_stock)
+        ? data.eventshop_stock.filter((item) => item && item.quantity > 0)
+        : []),
     ];
     return allItems;
   };
 
   const availableItems = getAvailableItems();
-  
+
   // Properly filter each category with null checking
-  const filteredSeedStock = filterItems(Array.isArray(data?.seed_stock) ? data.seed_stock.filter(item => item && item.quantity > 0) : []);
-  const filteredGearStock = filterItems(Array.isArray(data?.gear_stock) ? data.gear_stock.filter(item => item && item.quantity > 0) : []);
-  const filteredEggStock = filterItems(Array.isArray(data?.egg_stock) ? data.egg_stock.filter(item => item && item.quantity > 0) : []);
-  const filteredCosmeticStock = filterItems(Array.isArray(data?.cosmetic_stock) ? data.cosmetic_stock.filter(item => item && item.quantity > 0) : []);
-  const filteredEventStock = filterItems(Array.isArray(data?.eventshop_stock) ? data.eventshop_stock.filter(item => item && item.quantity > 0) : []);
+  const filteredSeedStock = filterItems(
+    Array.isArray(data?.seed_stock)
+      ? data.seed_stock.filter((item) => item && item.quantity > 0)
+      : []
+  );
+  const filteredGearStock = filterItems(
+    Array.isArray(data?.gear_stock)
+      ? data.gear_stock.filter((item) => item && item.quantity > 0)
+      : []
+  );
+  const filteredEggStock = filterItems(
+    Array.isArray(data?.egg_stock)
+      ? data.egg_stock.filter((item) => item && item.quantity > 0)
+      : []
+  );
+  const filteredCosmeticStock = filterItems(
+    Array.isArray(data?.cosmetic_stock)
+      ? data.cosmetic_stock.filter((item) => item && item.quantity > 0)
+      : []
+  );
+  const filteredEventStock = filterItems(
+    Array.isArray(data?.eventshop_stock)
+      ? data.eventshop_stock.filter((item) => item && item.quantity > 0)
+      : []
+  );
 
   // Filter by category
   const getItemsByCategory = () => {
     switch (selectedCategory) {
-      case 'seeds':
+      case "seeds":
         return filteredSeedStock;
-      case 'gear':
+      case "gear":
         return filteredGearStock;
-      case 'eggs':
+      case "eggs":
         return filteredEggStock;
-      case 'cosmetics':
+      case "cosmetics":
         return filteredCosmeticStock;
-      case 'event':
+      case "event":
         return filteredEventStock;
       default:
-        return availableItems.filter(item =>
-          item && item.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        return availableItems.filter(
+          (item) =>
+            item &&
+            item.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }
   };
 
   const categories = [
-    { id: 'all', label: 'All Items', icon: '📦' },
-    { id: 'seeds', label: 'Seeds', icon: '🌱' },
-    { id: 'gear', label: 'Gear', icon: '🔧' },
-    { id: 'eggs', label: 'Eggs', icon: '🥚' },
-    { id: 'cosmetics', label: 'Cosmetics', icon: '💄' },
-    { id: 'event', label: 'Event Shop', icon: '🎪' }
+    { id: "all", label: "All Items", icon: "📦" },
+    { id: "seeds", label: "Seeds", icon: "🌱" },
+    { id: "gear", label: "Gear", icon: "🔧" },
+    { id: "eggs", label: "Eggs", icon: "🥚" },
+    { id: "cosmetics", label: "Cosmetics", icon: "💄" },
+    { id: "event", label: "Event Shop", icon: "🎪" },
   ];
 
   return (
-    <div className="space-y-6" key={data?.updateId || 'no-data'}>
+    <div className="space-y-6" key={`dashboard-${data?.updateId || "no-data"}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Live Stock Dashboard</h1>
-          <p className="text-gray-400 mt-1">Real-time inventory tracking for Grow a Garden</p>
+          <h1 className="text-3xl font-bold text-white">
+            Live Stock Dashboard
+          </h1>
+          <p className="text-gray-400 mt-1">
+            Real-time inventory tracking for Grow a Garden
+          </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className={`flex items-center space-x-2 px-3 py-2 rounded-full text-sm font-medium ${
-            isConnected ? 'bg-emerald-900 text-emerald-300' : 'bg-red-900 text-red-300'
-          }`}>
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></div>
-            <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
-          </div>
-          {lastRefreshed && (
-            <Badge variant="outline" className="text-xs bg-blue-900 text-blue-300 border-blue-700">
-              Last refreshed: {lastRefreshed.toLocaleTimeString()}
-            </Badge>
-          )}
-          {connectionAttempts > 0 && (
-            <Badge variant="outline" className="text-xs bg-yellow-900 text-yellow-300 border-yellow-700">
-              Attempt: {connectionAttempts}
-            </Badge>
-          )}
-          {!isConnected && (
-            <Button 
-              onClick={forceReconnect} 
-              size="sm" 
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Reconnect
-            </Button>
-          )}
-        </div>
+        <div className="flex items-center space-x-2"></div>
       </div>
 
       {/* Error Display */}
@@ -123,16 +139,16 @@ const Dashboard = () => {
           <p className="font-medium">Connection Error</p>
           <p className="text-sm">{error}</p>
           <div className="flex gap-2 mt-2">
-            <Button 
-              onClick={forceReconnect} 
-              size="sm" 
+            <Button
+              onClick={forceReconnect}
+              size="sm"
               className="bg-red-600 hover:bg-red-700"
             >
               Retry Connection
             </Button>
-            <Button 
-              onClick={() => window.location.reload()} 
-              size="sm" 
+            <Button
+              onClick={() => window.location.reload()}
+              size="sm"
               variant="outline"
               className="border-red-700 text-red-300 hover:bg-red-800"
             >
@@ -154,15 +170,17 @@ const Dashboard = () => {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {categories.map(category => (
+            {categories.map((category) => (
               <Button
                 key={category.id}
-                variant={selectedCategory === category.id ? 'default' : 'outline'}
+                variant={
+                  selectedCategory === category.id ? "default" : "outline"
+                }
                 onClick={() => setSelectedCategory(category.id)}
                 className={`capitalize ${
-                  selectedCategory === category.id 
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
-                    : 'border-gray-600 text-gray-300 hover:bg-gray-700 bg-transparent'
+                  selectedCategory === category.id
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : "border-gray-600 text-gray-300 hover:bg-gray-700 bg-transparent"
                 }`}
               >
                 <span className="mr-1">{category.icon}</span>
@@ -174,12 +192,19 @@ const Dashboard = () => {
       </div>
 
       {/* Live Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        key={`stats-${data?.updateId}`}
+      >
         <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-400">Available Items</p>
-              <p className="text-2xl font-bold text-emerald-400">{availableItems.length}</p>
+              <p className="text-sm font-medium text-gray-400">
+                Available Items
+              </p>
+              <p className="text-2xl font-bold text-emerald-400">
+                {availableItems.length}
+              </p>
             </div>
             <div className="text-3xl">📦</div>
           </div>
@@ -189,8 +214,15 @@ const Dashboard = () => {
             <div>
               <p className="text-sm font-medium text-gray-400">Categories</p>
               <p className="text-2xl font-bold text-blue-400">
-                {[filteredSeedStock, filteredGearStock, filteredEggStock, filteredCosmeticStock, filteredEventStock]
-                  .filter(arr => arr.length > 0).length}
+                {
+                  [
+                    filteredSeedStock,
+                    filteredGearStock,
+                    filteredEggStock,
+                    filteredCosmeticStock,
+                    filteredEventStock,
+                  ].filter((arr) => arr.length > 0).length
+                }
               </p>
             </div>
             <div className="text-3xl">🏷️</div>
@@ -199,9 +231,13 @@ const Dashboard = () => {
         <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-400">Active Weather</p>
+              <p className="text-sm font-medium text-gray-400">
+                Active Weather
+              </p>
               <p className="text-2xl font-bold text-cyan-400">
-                {Array.isArray(data?.weather) ? data.weather.filter(w => w && w.active).length : 0}
+                {Array.isArray(data?.weather)
+                  ? data.weather.filter((w) => w && w.active).length
+                  : 0}
               </p>
             </div>
             <div className="text-3xl">🌤️</div>
@@ -210,9 +246,11 @@ const Dashboard = () => {
         <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-400">Last Refreshed</p>
+              <p className="text-sm font-medium text-gray-400">
+                Last Refreshed
+              </p>
               <p className="text-sm font-bold text-white">
-                {lastRefreshed ? lastRefreshed.toLocaleTimeString() : 'Not yet'}
+                {lastRefreshed ? lastRefreshed.toLocaleTimeString() : "Not yet"}
               </p>
             </div>
             <div className="text-3xl">⏰</div>
@@ -225,86 +263,102 @@ const Dashboard = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4 animate-pulse">🌱</div>
           <h3 className="text-xl font-semibold text-white mb-2">
-            {isConnected ? 'Loading stock data...' : 'Connecting to WebSocket...'}
+            {isConnected
+              ? "Loading stock data..."
+              : "Connecting to WebSocket..."}
           </h3>
           <p className="text-gray-400">
-            {isConnected ? 'Waiting for WebSocket data' : 'Establishing connection...'}
+            {isConnected
+              ? "Waiting for WebSocket data"
+              : "Establishing connection..."}
           </p>
         </div>
       )}
 
-      {/* Weather Section */}
+      {/* Weather Section - Force refresh with updateId */}
       {data?.weather && Array.isArray(data.weather) && (
-        <WeatherSection weather={data.weather} key={`weather-${data.updateId}`} />
+        <WeatherSection
+          weather={data.weather}
+          key={`weather-${data.updateId}`}
+        />
       )}
 
-      {/* Stock Sections */}
-      {data && selectedCategory === 'all' && (
-        <div className="space-y-6">
-          <StockSection 
+      {/* Stock Sections - Force refresh with updateId */}
+      {data && selectedCategory === "all" && (
+        <div className="space-y-6" key={`all-sections-${data.updateId}`}>
+          <StockSection
             key={`seeds-${data.updateId}`}
-            title="Seeds" 
-            items={filteredSeedStock} 
-            icon="🌱" 
+            title="Seeds"
+            items={filteredSeedStock}
+            icon="🌱"
             colorScheme="border-emerald-500"
           />
-          <StockSection 
+          <StockSection
             key={`gear-${data.updateId}`}
-            title="Gear" 
-            items={filteredGearStock} 
-            icon="🔧" 
+            title="Gear"
+            items={filteredGearStock}
+            icon="🔧"
             colorScheme="border-blue-500"
           />
-          <StockSection 
+          <StockSection
             key={`eggs-${data.updateId}`}
-            title="Eggs" 
-            items={filteredEggStock} 
-            icon="🥚" 
+            title="Eggs"
+            items={filteredEggStock}
+            icon="🥚"
             colorScheme="border-yellow-500"
           />
-          <StockSection 
+          <StockSection
             key={`cosmetics-${data.updateId}`}
-            title="Cosmetics" 
-            items={filteredCosmeticStock} 
-            icon="💄" 
+            title="Cosmetics"
+            items={filteredCosmeticStock}
+            icon="💄"
             colorScheme="border-pink-500"
           />
-          <StockSection 
+          <StockSection
             key={`event-${data.updateId}`}
-            title="Event Shop" 
-            items={filteredEventStock} 
-            icon="🎪" 
+            title="Event Shop"
+            items={filteredEventStock}
+            icon="🎪"
             colorScheme="border-purple-500"
           />
         </div>
       )}
 
-      {/* Category-specific view */}
-      {data && selectedCategory !== 'all' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {/* Category-specific view - Force refresh with updateId */}
+      {data && selectedCategory !== "all" && (
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+          key={`category-${selectedCategory}-${data.updateId}`}
+        >
           {getItemsByCategory().map((item, index) => (
             <div
               key={`${selectedCategory}-${item.item_id}-${index}-${data.updateId}`}
               className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-4 transition-all duration-300 hover:shadow-md transform hover:scale-105"
             >
               <div className="flex items-center space-x-3 mb-3">
-                <img 
-                  src={item.icon} 
+                <img
+                  src={item.icon}
                   alt={item.display_name}
                   className="w-8 h-8 rounded"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSIjNjM2MzYzIiByeD0iNCIvPgo8dGV4dCB4PSIxMiIgeT0iMTYiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI0ZGRiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Pz88L3RleHQ+Cjwvc3ZnPgo=';
+                    (e.target as HTMLImageElement).src =
+                      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSIjNjM2MzYzIiByeD0iNCIvPgo8dGV4dCB4PSIxMiIgeT0iMTYiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI0ZGRiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Pz88L3RleHQ+Cjwvc3ZnPgo=";
                   }}
                 />
                 <Badge className="bg-emerald-900 text-emerald-300 border-emerald-700">
                   Available
                 </Badge>
               </div>
-              
-              <h3 className="font-semibold text-white mb-2">{item.display_name}</h3>
-              
+
+              <h3 className="font-semibold text-white mb-2">
+                {item.display_name}
+              </h3>
+
               <div className="flex items-center justify-between">
-                <Badge variant="outline" className="bg-gray-700 text-gray-300 border-gray-600">
+                <Badge
+                  variant="outline"
+                  className="bg-gray-700 text-gray-300 border-gray-600"
+                >
                   Qty: {item.quantity}
                 </Badge>
               </div>
@@ -317,8 +371,12 @@ const Dashboard = () => {
       {data && getItemsByCategory().length === 0 && (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">🔍</div>
-          <h3 className="text-xl font-semibold text-white mb-2">No available items found</h3>
-          <p className="text-gray-400">All items in this category are currently out of stock</p>
+          <h3 className="text-xl font-semibold text-white mb-2">
+            No available items found
+          </h3>
+          <p className="text-gray-400">
+            All items in this category are currently out of stock
+          </p>
         </div>
       )}
     </div>

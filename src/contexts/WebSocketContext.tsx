@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
 interface StockItem {
@@ -51,25 +50,48 @@ interface WebSocketProviderProps {
   children: React.ReactNode;
 }
 
+const STORAGE_KEYS = {
+  DATA: 'websocket_data',
+  LAST_REFRESHED: 'websocket_last_refreshed',
+  CONNECTION_STATE: 'websocket_connection_state'
+};
+
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
+  // Initialize state from sessionStorage to persist across page refreshes
   const [data, setData] = useState<WebSocketData | null>(() => {
-    // Try to restore data from sessionStorage on initialization
     try {
-      const saved = sessionStorage.getItem('websocket-data');
-      return saved ? JSON.parse(saved) : null;
+      const storedData = sessionStorage.getItem(STORAGE_KEYS.DATA);
+      if (storedData) {
+        const parsed = JSON.parse(storedData);
+        // Convert lastUpdated back to Date object
+        if (parsed.lastUpdated) {
+          parsed.lastUpdated = new Date(parsed.lastUpdated);
+        }
+        console.log('Restored WebSocket data from sessionStorage:', parsed);
+        return parsed;
+      }
+    } catch (error) {
+      console.error('Failed to restore WebSocket data from sessionStorage:', error);
+    }
+    return null;
+  });
+
+  const [isConnected, setIsConnected] = useState(() => {
+    try {
+      const storedState = sessionStorage.getItem(STORAGE_KEYS.CONNECTION_STATE);
+      return storedState ? JSON.parse(storedState).isConnected : false;
     } catch {
-      return null;
+      return false;
     }
   });
-  
-  const [isConnected, setIsConnected] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
+  
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(() => {
-    // Try to restore last refresh time from sessionStorage
     try {
-      const saved = sessionStorage.getItem('last-refreshed');
-      return saved ? new Date(saved) : null;
+      const storedTime = sessionStorage.getItem(STORAGE_KEYS.LAST_REFRESHED);
+      return storedTime ? new Date(storedTime) : null;
     } catch {
       return null;
     }
@@ -77,51 +99,38 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isConnectingRef = useRef(false);
   const maxReconnectAttempts = 10;
   const baseReconnectDelay = 1000;
 
-  // Calculate next refresh time aligned to 5-minute intervals with 5-second grace period
-  const calculateNextRefresh = () => {
-    const now = new Date();
-    const currentMinutes = now.getMinutes();
-    const currentSeconds = now.getSeconds();
-    
-    // Calculate the next 5-minute mark (0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55)
-    const nextFiveMinuteMark = Math.ceil(currentMinutes / 5) * 5;
-    
-    const nextRefreshTime = new Date(now);
-    nextRefreshTime.setMinutes(nextFiveMinuteMark);
-    nextRefreshTime.setSeconds(5); // 5-second grace period
-    nextRefreshTime.setMilliseconds(0);
-    
-    // If we've already passed this 5-minute mark + grace period, move to the next one
-    if (nextRefreshTime.getTime() <= now.getTime()) {
-      nextRefreshTime.setMinutes(nextRefreshTime.getMinutes() + 5);
-    }
-    
-    return nextRefreshTime;
-  };
-
-  // Save data to sessionStorage whenever it changes
+  // Persist data to sessionStorage whenever it changes
   useEffect(() => {
     if (data) {
       try {
-        sessionStorage.setItem('websocket-data', JSON.stringify(data));
-      } catch (err) {
-        console.warn('Failed to save WebSocket data to sessionStorage:', err);
+        sessionStorage.setItem(STORAGE_KEYS.DATA, JSON.stringify(data));
+        console.log('Persisted WebSocket data to sessionStorage');
+      } catch (error) {
+        console.error('Failed to persist WebSocket data:', error);
       }
     }
   }, [data]);
 
-  // Save last refresh time to sessionStorage whenever it changes
+  // Persist connection state
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEYS.CONNECTION_STATE, JSON.stringify({ isConnected }));
+    } catch (error) {
+      console.error('Failed to persist connection state:', error);
+    }
+  }, [isConnected]);
+
+  // Persist last refreshed time
   useEffect(() => {
     if (lastRefreshed) {
       try {
-        sessionStorage.setItem('last-refreshed', lastRefreshed.toISOString());
-      } catch (err) {
-        console.warn('Failed to save last refresh time to sessionStorage:', err);
+        sessionStorage.setItem(STORAGE_KEYS.LAST_REFRESHED, lastRefreshed.toISOString());
+      } catch (error) {
+        console.error('Failed to persist last refreshed time:', error);
       }
     }
   }, [lastRefreshed]);
@@ -133,7 +142,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     }
 
     if (connectionAttempts >= maxReconnectAttempts) {
-      setError('Maximum reconnection attempts reached. Will retry at next scheduled refresh.');
+      setError('Maximum reconnection attempts reached. Please try manual reconnect.');
       return;
     }
 
@@ -141,7 +150,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     console.log(`WebSocket connection attempt ${connectionAttempts + 1}`);
 
     try {
-      const ws = new WebSocket('wss://websocket.joshlei.com/growagarden/');
+      const ws = new WebSocket('wss://websocket.joshlei.com/growagarden?user_id=991667792897326416');
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -155,20 +164,24 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       ws.onmessage = (event) => {
         try {
           const parsedData = JSON.parse(event.data);
-          console.log('Received WebSocket data:', parsedData);
+          console.log('Received WebSocket data - forcing complete refresh:', parsedData);
           
           const refreshTime = new Date();
+          const uniqueUpdateId = `${Date.now()}-${Math.random()}`;
+          
+          // Force complete data refresh with new arrays and unique ID
           const newData: WebSocketData = {
-            seed_stock: [...(parsedData.seed_stock || [])],
-            gear_stock: [...(parsedData.gear_stock || [])],
-            egg_stock: [...(parsedData.egg_stock || [])],
-            cosmetic_stock: [...(parsedData.cosmetic_stock || [])],
-            eventshop_stock: [...(parsedData.eventshop_stock || [])],
-            weather: [...(parsedData.weather || [])],
+            seed_stock: parsedData.seed_stock ? [...parsedData.seed_stock] : [],
+            gear_stock: parsedData.gear_stock ? [...parsedData.gear_stock] : [],
+            egg_stock: parsedData.egg_stock ? [...parsedData.egg_stock] : [],
+            cosmetic_stock: parsedData.cosmetic_stock ? [...parsedData.cosmetic_stock] : [],
+            eventshop_stock: parsedData.eventshop_stock ? [...parsedData.eventshop_stock] : [],
+            weather: parsedData.weather ? [...parsedData.weather] : [],
             lastUpdated: refreshTime,
-            updateId: `${Date.now()}-${Math.random()}`
+            updateId: uniqueUpdateId
           };
           
+          console.log('Setting new data with updateId:', uniqueUpdateId);
           setData(newData);
           setLastRefreshed(refreshTime);
         } catch (err) {
@@ -217,50 +230,51 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
+    
+    // Clear persisted data on manual reconnect
+    try {
+      sessionStorage.removeItem(STORAGE_KEYS.DATA);
+      sessionStorage.removeItem(STORAGE_KEYS.LAST_REFRESHED);
+      sessionStorage.removeItem(STORAGE_KEYS.CONNECTION_STATE);
+    } catch (error) {
+      console.error('Failed to clear sessionStorage:', error);
+    }
+    
+    setData(null);
+    setLastRefreshed(null);
     setConnectionAttempts(0);
     setError(null);
     setTimeout(connect, 100);
   }, [connect]);
 
-  // Scheduled refresh every 5 minutes aligned to clock
-  const scheduleRefresh = useCallback(() => {
-    if (refreshIntervalRef.current) {
-      clearTimeout(refreshIntervalRef.current);
-    }
-
-    const now = new Date();
-    const next = calculateNextRefresh();
-    const timeUntilRefresh = next.getTime() - now.getTime();
-
-    console.log(`Next refresh scheduled for: ${next.toLocaleTimeString()} (in ${Math.round(timeUntilRefresh / 1000)}s)`);
-
-    refreshIntervalRef.current = setTimeout(() => {
-      console.log('Scheduled refresh: Reconnecting to get fresh data...');
-      forceReconnect();
-      scheduleRefresh(); // Schedule next refresh
-    }, timeUntilRefresh);
-  }, [forceReconnect]);
-
-  // Initial connection
+  // Initial connection - only if not already connected
   useEffect(() => {
-    connect();
-    scheduleRefresh();
+    // Only connect if we don't have an active connection
+    if (!isConnected || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      connect();
+    }
 
     // Cleanup function
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      if (refreshIntervalRef.current) {
-        clearTimeout(refreshIntervalRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close(1000, 'Component unmounting');
-      }
+      
+      // Set up beforeunload handler
+      const handleBeforeUnload = () => {
+        if (wsRef.current) {
+          wsRef.current.close(1000, 'Page unloading');
+        }
+      };
+      
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      
+      // Clean up the event listener
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []); // Only run once on mount
+  }, []);
 
-  // Page visibility change handling
+  // Page visibility change handling - maintain connection
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && !isConnected) {

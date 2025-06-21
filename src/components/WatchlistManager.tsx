@@ -25,7 +25,8 @@ const WatchlistManager = () => {
 
   const [suggestions, setSuggestions] = useState([]);
 
-    const safeParseDate = (dateValue) => {
+  // Helper function to safely convert date strings to Date objects
+  const safeParseDate = (dateValue) => {
     if (!dateValue) return null;
     if (dateValue instanceof Date) return dateValue;
     const parsed = new Date(dateValue);
@@ -205,7 +206,7 @@ const WatchlistManager = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-400">Total Alerts</p>
-                <p className="text-2xl font-bold text-blue-400">{watchlist.reduce((sum, item) => sum + item.triggerCount, 0)}</p>
+                <p className="text-2xl font-bold text-blue-400">{watchlist.reduce((sum, item) => sum + (item.triggerCount || 0), 0)}</p>
               </div>
               <div className="text-3xl">📊</div>
             </div>
@@ -357,9 +358,9 @@ const WatchlistManager = () => {
                     </div>
 
                     <div className="text-xs text-gray-500">
-                      Added: {item.createdAt.toLocaleDateString()} | 
-                      Alerts sent: {item.triggerCount}
-                      {item.lastTriggered && ` | Last: ${item.lastTriggered.toLocaleDateString()}`}
+                      Added: {formatDate(item.createdAt)} | 
+                      Alerts sent: {item.triggerCount || 0}
+                      {item.lastTriggered && ` | Last: ${formatDate(item.lastTriggered)}`}
                     </div>
                   </div>
 
