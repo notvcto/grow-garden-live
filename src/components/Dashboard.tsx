@@ -1,20 +1,23 @@
+
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useGrowGardenWebSocket } from '@/hooks/useGrowGardenWebSocket';
+import { useWebSocketData } from '@/contexts/WebSocketContext';
 import StockSection from './StockSection';
 import WeatherSection from './WeatherSection';
 
 const Dashboard = () => {
-  const { data, isConnected, error, reconnect } = useGrowGardenWebSocket();
+  const { data, isConnected, error, connectionAttempts, forceReconnect, lastRefreshed } = useWebSocketData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Log when data changes to debug
   useEffect(() => {
-    console.log('Dashboard data updated:', data?.updateId);
-    console.log('Full data object:', data);
+    if (data) {
+      console.log('Dashboard data updated:', data.updateId);
+      console.log('Full data object:', data);
+    }
   }, [data]);
 
   // Filter function for search
@@ -36,7 +39,6 @@ const Dashboard = () => {
       ...(Array.isArray(data.cosmetic_stock) ? data.cosmetic_stock.filter(item => item && item.quantity > 0) : []),
       ...(Array.isArray(data.eventshop_stock) ? data.eventshop_stock.filter(item => item && item.quantity > 0) : [])
     ];
-    console.log('Available items:', allItems);
     return allItems;
   };
 
@@ -48,17 +50,6 @@ const Dashboard = () => {
   const filteredEggStock = filterItems(Array.isArray(data?.egg_stock) ? data.egg_stock.filter(item => item && item.quantity > 0) : []);
   const filteredCosmeticStock = filterItems(Array.isArray(data?.cosmetic_stock) ? data.cosmetic_stock.filter(item => item && item.quantity > 0) : []);
   const filteredEventStock = filterItems(Array.isArray(data?.eventshop_stock) ? data.eventshop_stock.filter(item => item && item.quantity > 0) : []);
-
-  // Log filtered results for debugging
-  useEffect(() => {
-    console.log('Filtered results:', {
-      seeds: filteredSeedStock.length,
-      gear: filteredGearStock.length,
-      eggs: filteredEggStock.length,
-      cosmetics: filteredCosmeticStock.length,
-      event: filteredEventStock.length
-    });
-  }, [filteredSeedStock, filteredGearStock, filteredEggStock, filteredCosmeticStock, filteredEventStock]);
 
   // Filter by category
   const getItemsByCategory = () => {
@@ -89,17 +80,6 @@ const Dashboard = () => {
     { id: 'event', label: 'Event Shop', icon: '🎪' }
   ];
 
-  // Format last updated time
-  const formatLastUpdated = (date: Date) => {
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-
   return (
     <div className="space-y-6" key={data?.updateId || 'no-data'}>
       {/* Header */}
@@ -115,8 +95,22 @@ const Dashboard = () => {
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></div>
             <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
           </div>
-          {error && !isConnected && (
-            <Button onClick={reconnect} size="sm" className="bg-blue-600 hover:bg-blue-700">
+          {lastRefreshed && (
+            <Badge variant="outline" className="text-xs bg-blue-900 text-blue-300 border-blue-700">
+              Last refreshed: {lastRefreshed.toLocaleTimeString()}
+            </Badge>
+          )}
+          {connectionAttempts > 0 && (
+            <Badge variant="outline" className="text-xs bg-yellow-900 text-yellow-300 border-yellow-700">
+              Attempt: {connectionAttempts}
+            </Badge>
+          )}
+          {!isConnected && (
+            <Button 
+              onClick={forceReconnect} 
+              size="sm" 
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
               Reconnect
             </Button>
           )}
@@ -128,6 +122,23 @@ const Dashboard = () => {
         <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
           <p className="font-medium">Connection Error</p>
           <p className="text-sm">{error}</p>
+          <div className="flex gap-2 mt-2">
+            <Button 
+              onClick={forceReconnect} 
+              size="sm" 
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Retry Connection
+            </Button>
+            <Button 
+              onClick={() => window.location.reload()} 
+              size="sm" 
+              variant="outline"
+              className="border-red-700 text-red-300 hover:bg-red-800"
+            >
+              Refresh Page
+            </Button>
+          </div>
         </div>
       )}
 
@@ -199,22 +210,26 @@ const Dashboard = () => {
         <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-400">Last Updated</p>
+              <p className="text-sm font-medium text-gray-400">Last Refreshed</p>
               <p className="text-sm font-bold text-white">
-                {data?.lastUpdated ? formatLastUpdated(data.lastUpdated) : 'Never'}
+                {lastRefreshed ? lastRefreshed.toLocaleTimeString() : 'Not yet'}
               </p>
             </div>
-            <div className="text-3xl">🕐</div>
+            <div className="text-3xl">⏰</div>
           </div>
         </div>
       </div>
 
       {/* Loading State */}
-      {!data && isConnected && (
+      {!data && (
         <div className="text-center py-12">
           <div className="text-6xl mb-4 animate-pulse">🌱</div>
-          <h3 className="text-xl font-semibold text-white mb-2">Loading stock data...</h3>
-          <p className="text-gray-400">Waiting for WebSocket data</p>
+          <h3 className="text-xl font-semibold text-white mb-2">
+            {isConnected ? 'Loading stock data...' : 'Connecting to WebSocket...'}
+          </h3>
+          <p className="text-gray-400">
+            {isConnected ? 'Waiting for WebSocket data' : 'Establishing connection...'}
+          </p>
         </div>
       )}
 
