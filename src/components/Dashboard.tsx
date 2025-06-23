@@ -7,24 +7,16 @@ import StockSection from "./StockSection";
 import WeatherSection from "./WeatherSection";
 
 const Dashboard = () => {
-  const {
-    data,
-    isConnected,
-    error,
-    connectionAttempts,
-    forceReconnect,
-    lastRefreshed,
-  } = useWebSocketData();
+  const { data, isConnected, error, forceReconnect } = useWebSocketData();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  // Log when data changes to debug - force re-render on every data change
+  // Simple data change logging without forced refreshes
   useEffect(() => {
     if (data) {
-      console.log("Dashboard data updated with ID:", data.updateId);
-      console.log("Data refresh triggered for all components");
+      console.log("Dashboard data updated");
     }
-  }, [data?.updateId]); // Key dependency on updateId to force refresh
+  }, [data]);
 
   // Filter function for search
   const filterItems = (items: any[]) => {
@@ -119,7 +111,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="space-y-6" key={`dashboard-${data?.updateId || "no-data"}`}>
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -130,7 +122,6 @@ const Dashboard = () => {
             Real-time inventory tracking for Grow a Garden
           </p>
         </div>
-        <div className="flex items-center space-x-2"></div>
       </div>
 
       {/* Error Display */}
@@ -192,10 +183,7 @@ const Dashboard = () => {
       </div>
 
       {/* Live Stats */}
-      <div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-        key={`stats-${data?.updateId}`}
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -243,19 +231,6 @@ const Dashboard = () => {
             <div className="text-3xl">🌤️</div>
           </div>
         </div>
-        <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-400">
-                Last Refreshed
-              </p>
-              <p className="text-sm font-bold text-white">
-                {lastRefreshed ? lastRefreshed.toLocaleTimeString() : "Not yet"}
-              </p>
-            </div>
-            <div className="text-3xl">⏰</div>
-          </div>
-        </div>
       </div>
 
       {/* Loading State */}
@@ -275,47 +250,39 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Weather Section - Force refresh with updateId */}
+      {/* Weather Section */}
       {data?.weather && Array.isArray(data.weather) && (
-        <WeatherSection
-          weather={data.weather}
-          key={`weather-${data.updateId}`}
-        />
+        <WeatherSection weather={data.weather} />
       )}
 
-      {/* Stock Sections - Force refresh with updateId */}
+      {/* Stock Sections */}
       {data && selectedCategory === "all" && (
-        <div className="space-y-6" key={`all-sections-${data.updateId}`}>
+        <div className="space-y-6">
           <StockSection
-            key={`seeds-${data.updateId}`}
             title="Seeds"
             items={filteredSeedStock}
             icon="🌱"
             colorScheme="border-emerald-500"
           />
           <StockSection
-            key={`gear-${data.updateId}`}
             title="Gear"
             items={filteredGearStock}
             icon="🔧"
             colorScheme="border-blue-500"
           />
           <StockSection
-            key={`eggs-${data.updateId}`}
             title="Eggs"
             items={filteredEggStock}
             icon="🥚"
             colorScheme="border-yellow-500"
           />
           <StockSection
-            key={`cosmetics-${data.updateId}`}
             title="Cosmetics"
             items={filteredCosmeticStock}
             icon="💄"
             colorScheme="border-pink-500"
           />
           <StockSection
-            key={`event-${data.updateId}`}
             title="Event Shop"
             items={filteredEventStock}
             icon="🎪"
@@ -324,15 +291,12 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Category-specific view - Force refresh with updateId */}
+      {/* Category-specific view */}
       {data && selectedCategory !== "all" && (
-        <div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-          key={`category-${selectedCategory}-${data.updateId}`}
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {getItemsByCategory().map((item, index) => (
             <div
-              key={`${selectedCategory}-${item.item_id}-${index}-${data.updateId}`}
+              key={`${selectedCategory}-${item.item_id}-${index}`}
               className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 p-4 transition-all duration-300 hover:shadow-md transform hover:scale-105"
             >
               <div className="flex items-center space-x-3 mb-3">
